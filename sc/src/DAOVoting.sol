@@ -15,6 +15,7 @@ contract DAOVoting is ERC2771Context {
         address recipient;
         uint256 amount;
         uint256 deadline;
+        string description;
         uint256 votesFor;
         uint256 votesAgainst;
         uint256 votesAbstain;
@@ -52,7 +53,7 @@ contract DAOVoting is ERC2771Context {
     }
 
     // Propuestas
-    function createProposal(address recipient, uint256 amount, uint256 deadline) external {
+    function createProposal(address recipient, uint256 amount, uint256 deadline, string calldata description) external {
         require(recipient != address(0), "BAD_RECIPIENT");
         require(amount > 0, "BAD_AMOUNT");
         require(deadline > block.timestamp, "BAD_DEADLINE");
@@ -67,6 +68,7 @@ contract DAOVoting is ERC2771Context {
             recipient: recipient,
             amount: amount,
             deadline: deadline,
+            description: description,
             votesFor: 0,
             votesAgainst: 0,
             votesAbstain: 0,

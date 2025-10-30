@@ -44,11 +44,11 @@ contract DAOVotingTest is Test {
 
         // Alice puede crear
         vm.prank(alice);
-        dao.createProposal(bob, 1 ether, block.timestamp + 1 days);
+        dao.createProposal(bob, 1 ether, block.timestamp + 1 days, "Pago a Bob");
 
         // Bob también puede (tiene 5 de 15 = 33%)
         vm.prank(bob);
-        dao.createProposal(alice, 1 ether, block.timestamp + 1 days);
+        dao.createProposal(alice, 1 ether, block.timestamp + 1 days, "Pago a Alice");
     }
 
     function test_RevertWhen_CreateProposalInsufficientShare() public {
@@ -57,7 +57,7 @@ contract DAOVotingTest is Test {
         // carol 0 -> no puede crear
         vm.prank(carol);
         vm.expectRevert(bytes("INSUFFICIENT_SHARE"));
-        dao.createProposal(alice, 1 ether, block.timestamp + 1 days);
+        dao.createProposal(alice, 1 ether, block.timestamp + 1 days, "Desc");
     }
 
     function test_VoteAndChangeBeforeDeadline() public {
@@ -65,7 +65,7 @@ contract DAOVotingTest is Test {
         _fund(bob, 5 ether);
 
         vm.prank(alice);
-        dao.createProposal(carol, 1 ether, block.timestamp + 1 days);
+        dao.createProposal(carol, 1 ether, block.timestamp + 1 days, "Pagar a Carol");
 
         // proposalId = 1
         vm.prank(alice);
@@ -89,7 +89,7 @@ contract DAOVotingTest is Test {
         uint256 recipientStart = carol.balance;
 
         vm.prank(alice);
-        dao.createProposal(carol, 3 ether, block.timestamp + 1 days);
+        dao.createProposal(carol, 3 ether, block.timestamp + 1 days, "Pagar a Carol 3 ETH");
 
         vm.prank(alice);
         dao.vote(1, DAOVoting.VoteType.For);

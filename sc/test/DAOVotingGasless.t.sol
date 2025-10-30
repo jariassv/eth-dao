@@ -34,7 +34,7 @@ contract DAOVotingGaslessTest is Test {
 
         // Alice creates proposal
         vm.prank(alice);
-        dao.createProposal(bob, 1 ether, block.timestamp + 1 days);
+        dao.createProposal(bob, 1 ether, block.timestamp + 1 days, "Desc");
     }
 
     function _domainSeparator() internal view returns (bytes32) {

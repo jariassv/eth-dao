@@ -49,7 +49,7 @@ contract Scenario is Script {
         address cAddr = vm.addr(cPk);
         uint256 deadline = block.timestamp + 1 days;
         vm.startBroadcast(aPk);
-        dao.createProposal(cAddr, 3 ether, deadline);
+        dao.createProposal(cAddr, 3 ether, deadline, "Escenario: pagar 3 ETH a C");
         vm.stopBroadcast();
 
         // Votos (tx normales para simplificar integración)
