@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-contract DAOVoting {
+import "lib/openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
+
+contract DAOVoting is ERC2771Context {
     enum VoteType {
         Against,
         For,
@@ -39,12 +41,14 @@ contract DAOVoting {
     event Voted(uint256 indexed id, address indexed voter, VoteType voteType);
     event Executed(uint256 indexed id, address indexed recipient, uint256 amount);
 
+    constructor(address trustedForwarder) ERC2771Context(trustedForwarder) {}
+
     // Fondos
     function fundDAO() external payable {
         require(msg.value > 0, "NO_VALUE");
-        userBalances[msg.sender] += msg.value;
+        userBalances[_msgSender()] += msg.value;
         totalDaoBalance += msg.value;
-        emit Funded(msg.sender, msg.value);
+        emit Funded(_msgSender(), msg.value);
     }
 
     // Propuestas
@@ -55,7 +59,7 @@ contract DAOVoting {
 
         // Regla 10% del balance total
         uint256 requiredShare = (totalDaoBalance * CREATOR_PERCENT_BP) / 10000;
-        require(userBalances[msg.sender] >= requiredShare, "INSUFFICIENT_SHARE");
+        require(userBalances[_msgSender()] >= requiredShare, "INSUFFICIENT_SHARE");
 
         uint256 id = nextProposalId++;
         proposals[id] = Proposal({
@@ -69,7 +73,7 @@ contract DAOVoting {
             executed: false
         });
 
-        emit ProposalCreated(id, msg.sender, recipient, amount, deadline);
+        emit ProposalCreated(id, _msgSender(), recipient, amount, deadline);
     }
 
     // Votación (permite cambiar el voto antes del deadline)
@@ -78,22 +82,23 @@ contract DAOVoting {
         require(p.id != 0, "NOT_FOUND");
         require(block.timestamp < p.deadline, "DEADLINE_PASSED");
 
-        if (hasVoted[proposalId][msg.sender]) {
+        address sender = _msgSender();
+        if (hasVoted[proposalId][sender]) {
             // revertir conteo previo
-            VoteType prev = userVote[proposalId][msg.sender];
+            VoteType prev = userVote[proposalId][sender];
             if (prev == VoteType.For) p.votesFor -= 1;
             else if (prev == VoteType.Against) p.votesAgainst -= 1;
             else p.votesAbstain -= 1;
         }
 
-        hasVoted[proposalId][msg.sender] = true;
-        userVote[proposalId][msg.sender] = voteType;
+        hasVoted[proposalId][sender] = true;
+        userVote[proposalId][sender] = voteType;
 
         if (voteType == VoteType.For) p.votesFor += 1;
         else if (voteType == VoteType.Against) p.votesAgainst += 1;
         else p.votesAbstain += 1;
 
-        emit Voted(proposalId, msg.sender, voteType);
+        emit Voted(proposalId, sender, voteType);
     }
 
     // Ejecución

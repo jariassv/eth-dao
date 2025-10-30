@@ -3,15 +3,18 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {DAOVoting} from "../src/DAOVoting.sol";
+import {MinimalForwarder} from "../src/MinimalForwarder.sol";
 
 contract DAOVotingTest is Test {
     DAOVoting dao;
+    MinimalForwarder forwarder;
     address alice;
     address bob;
     address carol;
 
     function setUp() public {
-        dao = new DAOVoting();
+        forwarder = new MinimalForwarder();
+        dao = new DAOVoting(address(forwarder));
         alice = address(0xA11CE);
         bob = address(0xB0B);
         carol = address(0xCA701);
