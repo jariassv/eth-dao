@@ -116,7 +116,7 @@ export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disa
     <div className="flex items-center gap-2">
       <label className="flex items-center gap-2 text-xs mr-2">
         <input type="checkbox" checked={selfPayGasless} onChange={(e) => setSelfPayGasless(e.target.checked)} />
-        Gasless (yo pago gas)
+        {selfPayGasless ? "Yo pago el gas" : "Gasless (relayer paga el gas)"}
       </label>
       <button
         onClick={() => sendVote(1)}

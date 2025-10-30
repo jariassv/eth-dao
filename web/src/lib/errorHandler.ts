@@ -41,7 +41,7 @@ export function parseTransactionError(error: any): string {
 
   // Relay errors
   if (message.includes("relay") || code === "relay_failed") {
-    return "Error del servicio relayer. Si estás usando votación gasless, intenta con el checkbox 'Gasless (yo pago gas)' marcado, o verifica que el relayer esté funcionando.";
+    return "Error del servicio relayer. El relayer no puede procesar la transacción (puede no tener fondos o estar desconectado). Marca el checkbox para pagar el gas tú mismo, o verifica que el relayer esté funcionando.";
   }
 
   // Generic error
