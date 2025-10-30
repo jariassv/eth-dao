@@ -40,7 +40,13 @@ export function FundingPanel() {
       setUserBalance(ethers.formatEther(ub));
       setDaoBalance(ethers.formatEther(tb));
     } catch (e: any) {
-      setError(e?.message ?? "Error al leer balances");
+      // Ignorar errores de detección automática (como symbol(), decimals(), etc.)
+      if (e?.code === "CALL_EXCEPTION" && e?.data === null) {
+        // Es un error de detección automática, ignorar silenciosamente
+        return;
+      }
+      console.warn("Error al leer balances:", e);
+      // No mostrar error en UI para no confundir al usuario
     }
   }
 
@@ -56,12 +62,37 @@ export function FundingPanel() {
     try {
       setSending(true);
       const value = ethers.parseEther(amountEth || "0");
+      if (value === 0n) {
+        setError("La cantidad debe ser mayor a 0");
+        setSending(false);
+        return;
+      }
       const c = await contract.getWithSigner();
+      // Enviar transacción directamente, ignorar errores de detección previa
       const tx = await c.fundDAO({ value });
       await tx.wait();
       await refreshBalances();
+      setAmountEth("0.1"); // Resetear input después de éxito
     } catch (e: any) {
-      setError(e?.message ?? "Error al fondear");
+      // Ignorar errores de detección automática antes de enviar
+      if (e?.code === "CALL_EXCEPTION" && e?.data === null && !e?.transaction) {
+        // Error de detección, reintentar manualmente
+        console.warn("Error de detección automática, reintentando...", e);
+        try {
+          const value = ethers.parseEther(amountEth || "0");
+          const c = await contract.getWithSigner();
+          const tx = await c.fundDAO({ value });
+          await tx.wait();
+          await refreshBalances();
+          setAmountEth("0.1");
+        } catch (retryError: any) {
+          const errorMsg = retryError?.reason || retryError?.message || "Error al fondear";
+          setError(errorMsg);
+        }
+      } else {
+        const errorMsg = e?.reason || e?.message || "Error al fondear";
+        setError(errorMsg);
+      }
     } finally {
       setSending(false);
     }
