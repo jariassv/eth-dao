@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { ConnectWallet } from "../components/ConnectWallet";
 import { FundingPanel } from "../components/FundingPanel";
+import { CreateProposal } from "../components/CreateProposal";
+import { ProposalList } from "../components/ProposalList";
 
 export default function Home() {
   return (
@@ -17,6 +19,8 @@ export default function Home() {
         <div className="flex flex-col items-stretch gap-6 w-full">
           <ConnectWallet />
           <FundingPanel />
+          <CreateProposal />
+          <ProposalList />
         </div>
       </main>
     </div>

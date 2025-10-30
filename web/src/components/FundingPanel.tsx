@@ -19,12 +19,14 @@ export function FundingPanel() {
     const ethereum = getEthereum();
     if (!ethereum) return null;
     const provider = new ethers.BrowserProvider(ethereum as any);
-    const signer = provider.getSigner();
+    async function getWithSigner() {
+      const signer = await provider.getSigner();
+      return new ethers.Contract(DAO_ADDRESS, DAOVOTING_ABI as any, signer);
+    }
     return {
       provider,
-      signer,
       instance: new ethers.Contract(DAO_ADDRESS, DAOVOTING_ABI as any, provider),
-      withSigner: new ethers.Contract(DAO_ADDRESS, DAOVOTING_ABI as any, signer),
+      getWithSigner,
     } as const;
   }, []);
 
@@ -50,11 +52,12 @@ export function FundingPanel() {
   const onFund = async () => {
     setError(null);
     if (!address) return setError("Conecta tu wallet primero");
-    if (!contract?.withSigner) return setError("Contrato no configurado");
+    if (!contract?.getWithSigner) return setError("Contrato no configurado");
     try {
       setSending(true);
       const value = ethers.parseEther(amountEth || "0");
-      const tx = await contract.withSigner.fundDAO({ value });
+      const c = await contract.getWithSigner();
+      const tx = await c.fundDAO({ value });
       await tx.wait();
       await refreshBalances();
     } catch (e: any) {
