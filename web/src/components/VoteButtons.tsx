@@ -11,6 +11,7 @@ export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disa
   const { address } = useWallet();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selfPayGasless, setSelfPayGasless] = useState(false);
 
   const contract = useMemo(() => {
     if (!DAO_ADDRESS) return null;
@@ -46,16 +47,46 @@ export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disa
     const domain = buildEip712Domain(chainId, FORWARDER_ADDRESS);
     const signature = await (signer as any).signTypedData(domain, FORWARD_REQUEST_TYPES, req);
 
-    const res = await fetch("/api/relay", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ forwarder: FORWARDER_ADDRESS, request: { ...req }, signature }),
-    });
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      throw new Error(j?.error || "relay_failed");
+    if (selfPayGasless) {
+      // El usuario paga gas: llama execute() directamente
+      const fwdWithSigner = new ethers.Contract(FORWARDER_ADDRESS, MINIMAL_FORWARDER_ABI as any, signer);
+      const tx = await fwdWithSigner.execute(
+        {
+          from: req.from,
+          to: req.to,
+          value: req.value,
+          gas: req.gas,
+          nonce: req.nonce,
+          data: req.data,
+        },
+        signature,
+        { gasLimit: 1_000_000 }
+      );
+      return await tx.wait();
+    } else {
+      // Usa relayer backend
+      const res = await fetch("/api/relay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          forwarder: FORWARDER_ADDRESS,
+          request: {
+            from: req.from,
+            to: req.to,
+            value: req.value.toString(),
+            gas: req.gas.toString(),
+            nonce: req.nonce.toString(),
+            data: req.data,
+          },
+          signature,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || "relay_failed");
+      }
+      return await res.json();
     }
-    return await res.json();
   }
 
   const sendVote = async (voteType: number) => {
@@ -80,6 +111,10 @@ export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disa
 
   return (
     <div className="flex items-center gap-2">
+      <label className="flex items-center gap-2 text-xs mr-2">
+        <input type="checkbox" checked={selfPayGasless} onChange={(e) => setSelfPayGasless(e.target.checked)} />
+        Gasless (yo pago gas)
+      </label>
       <button
         onClick={() => sendVote(1)}
         disabled={sending || disabled}

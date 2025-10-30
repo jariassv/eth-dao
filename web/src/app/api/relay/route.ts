@@ -23,13 +23,25 @@ export async function POST(req: NextRequest) {
     }
 
     const rpcUrl = process.env.RPC_URL;
-    const relayerPk = process.env.RELAYER_PRIVATE_KEY;
+    let relayerPk = process.env.RELAYER_PRIVATE_KEY;
     if (!rpcUrl || !relayerPk) {
       return Response.json({ error: "server_misconfigured" }, { status: 500 });
     }
 
+    // Normaliza y valida la private key
+    relayerPk = relayerPk.trim();
+    if (!relayerPk.startsWith("0x")) relayerPk = `0x${relayerPk}`;
+    if (relayerPk.length !== 66) {
+      return Response.json({ error: "invalid_relayer_private_key_format" }, { status: 400 });
+    }
+
     const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const wallet = new ethers.Wallet(relayerPk, provider);
+    let wallet: ethers.Wallet;
+    try {
+      wallet = new ethers.Wallet(relayerPk, provider);
+    } catch {
+      return Response.json({ error: "invalid_relayer_private_key" }, { status: 400 });
+    }
     const fwd = new ethers.Contract(forwarder, MINIMAL_FORWARDER_ABI as any, wallet);
 
     // Basic verify before sending

@@ -13,7 +13,8 @@ export const DAOVOTING_ABI = [
     "inputs": [
       { "name": "recipient", "type": "address" },
       { "name": "amount", "type": "uint256" },
-      { "name": "deadline", "type": "uint256" }
+      { "name": "deadline", "type": "uint256" },
+      { "name": "description", "type": "string" }
     ],
     "outputs": []
   },
@@ -43,6 +44,7 @@ export const DAOVOTING_ABI = [
           { "name": "recipient", "type": "address" },
           { "name": "amount", "type": "uint256" },
           { "name": "deadline", "type": "uint256" },
+          { "name": "description", "type": "string" },
           { "name": "votesFor", "type": "uint256" },
           { "name": "votesAgainst", "type": "uint256" },
           { "name": "votesAbstain", "type": "uint256" },

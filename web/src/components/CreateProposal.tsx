@@ -11,6 +11,7 @@ export function CreateProposal() {
   const [recipient, setRecipient] = useState("");
   const [amountEth, setAmountEth] = useState("1.0");
   const [deadlineHours, setDeadlineHours] = useState(24);
+  const [description, setDescription] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export function CreateProposal() {
       const amount = ethers.parseEther(amountEth || "0");
       const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineHours * 3600);
       const c = await contract.get();
-      const tx = await c.createProposal(recipient, amount, deadline);
+      const tx = await c.createProposal(recipient, amount, deadline, description);
       await tx.wait();
       setInfo("Propuesta creada correctamente");
     } catch (e: any) {
@@ -80,6 +81,16 @@ export function CreateProposal() {
           onChange={(e) => setDeadlineHours(parseInt(e.target.value || "0", 10))}
         />
         <span className="text-sm">horas</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        <label className="text-sm">Descripción</label>
+        <textarea
+          className="border px-3 py-2 rounded"
+          rows={3}
+          placeholder="Describe la propuesta"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
       </div>
       <button
         onClick={onCreate}

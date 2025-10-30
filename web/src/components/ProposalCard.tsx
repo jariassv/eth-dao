@@ -8,6 +8,7 @@ export type Proposal = {
   recipient: string;
   amount: bigint;
   deadline: bigint;
+  description: string;
   votesFor: bigint;
   votesAgainst: bigint;
   votesAbstain: bigint;
@@ -29,6 +30,7 @@ export function ProposalCard({ p, now }: { p: Proposal; now: number }) {
       <div className="text-sm">Beneficiario: <span className="font-mono">{p.recipient}</span></div>
       <div className="text-sm">Monto: <b>{ethers.formatEther(p.amount)} ETH</b></div>
       <div className="text-sm">Deadline: {new Date(Number(p.deadline) * 1000).toLocaleString()}</div>
+      <div className="text-sm">Descripción: {p.description || "-"}</div>
       <div className="text-sm">Votos: ✅ {p.votesFor.toString()} | ❌ {p.votesAgainst.toString()} | ⚪ {p.votesAbstain.toString()}</div>
       <div className="text-sm">Estado: <b>{status}</b></div>
       {status === "Activa" && <VoteButtons proposalId={p.id} />}
