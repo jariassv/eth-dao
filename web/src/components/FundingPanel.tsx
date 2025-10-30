@@ -5,6 +5,7 @@ import { ethers } from "ethers";
 import { DAO_ADDRESS, DAOVOTING_ABI } from "../lib/contracts";
 import { getEthereum } from "../lib/ethereum";
 import { useWallet } from "../hooks/useWallet";
+import { parseTransactionError } from "../lib/errorHandler";
 
 export function FundingPanel() {
   const { address } = useWallet();
@@ -86,12 +87,14 @@ export function FundingPanel() {
           await refreshBalances();
           setAmountEth("0.1");
         } catch (retryError: any) {
-          const errorMsg = retryError?.reason || retryError?.message || "Error al fondear";
+          const errorMsg = parseTransactionError(retryError);
           setError(errorMsg);
+          console.error("Error al fondear (reintento):", retryError);
         }
       } else {
-        const errorMsg = e?.reason || e?.message || "Error al fondear";
+        const errorMsg = parseTransactionError(e);
         setError(errorMsg);
+        console.error("Error al fondear:", e);
       }
     } finally {
       setSending(false);

@@ -75,7 +75,37 @@ export async function POST(req: NextRequest) {
     const receipt = await tx.wait();
     return Response.json({ hash: receipt?.hash ?? tx.hash }, { status: 200 });
   } catch (e: any) {
-    return Response.json({ error: e?.message ?? "relay_failed" }, { status: 500 });
+    const code = e?.code;
+    const message = e?.message || "";
+    let errorMessage = "relay_failed";
+    let statusCode = 500;
+
+    // Insufficient funds del relayer
+    if (code === "INSUFFICIENT_FUNDS" || message.includes("insufficient funds")) {
+      errorMessage = "El relayer no tiene fondos suficientes para pagar el gas. Contacta al administrador.";
+      statusCode = 503; // Service Unavailable
+    }
+    // Invalid signature o verificación fallida
+    else if (code === "INVALID_ARGUMENT" || message.includes("invalid signature") || message.includes("signature")) {
+      errorMessage = "Firma inválida. Por favor, intenta votar nuevamente.";
+      statusCode = 400;
+    }
+    // Nonce ya usado
+    else if (message.includes("nonce") || message.includes("already used")) {
+      errorMessage = "Esta transacción ya fue procesada. Por favor, intenta votar nuevamente.";
+      statusCode = 409; // Conflict
+    }
+    // Error de red o transacción revertida
+    else if (code === "NETWORK_ERROR" || message.includes("network")) {
+      errorMessage = "Error de red. Por favor, intenta más tarde.";
+      statusCode = 503;
+    }
+    else {
+      errorMessage = message || "Error desconocido en el relayer.";
+    }
+
+    console.error("Error en relayer:", e);
+    return Response.json({ error: errorMessage }, { status: statusCode });
   }
 }
 

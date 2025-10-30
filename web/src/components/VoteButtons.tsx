@@ -6,6 +6,7 @@ import { DAO_ADDRESS, DAOVOTING_ABI } from "../lib/contracts";
 import { FORWARDER_ADDRESS, MINIMAL_FORWARDER_ABI, FORWARD_REQUEST_TYPES, buildEip712Domain } from "../lib/forwarder";
 import { getEthereum } from "../lib/ethereum";
 import { useWallet } from "../hooks/useWallet";
+import { parseTransactionError } from "../lib/errorHandler";
 
 export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disabled?: boolean }) {
   const { address } = useWallet();
@@ -103,7 +104,9 @@ export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disa
         await tx.wait();
       }
     } catch (e: any) {
-      setError(e?.shortMessage || e?.message || "Error al votar");
+      const errorMsg = parseTransactionError(e);
+      setError(errorMsg);
+      console.error("Error al votar:", e);
     } finally {
       setSending(false);
     }

@@ -5,6 +5,7 @@ import { ethers } from "ethers";
 import { DAO_ADDRESS, DAOVOTING_ABI } from "../lib/contracts";
 import { getEthereum } from "../lib/ethereum";
 import { useWallet } from "../hooks/useWallet";
+import { parseTransactionError } from "../lib/errorHandler";
 
 export function CreateProposal() {
   const { address } = useWallet();
@@ -42,7 +43,9 @@ export function CreateProposal() {
       await tx.wait();
       setInfo("Propuesta creada correctamente");
     } catch (e: any) {
-      setError(e?.shortMessage || e?.message || "Error al crear propuesta");
+      const errorMsg = parseTransactionError(e);
+      setError(errorMsg);
+      console.error("Error al crear propuesta:", e);
     } finally {
       setSending(false);
     }
