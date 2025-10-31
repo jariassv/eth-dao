@@ -58,53 +58,63 @@ export function CreateProposal() {
   };
 
   return (
-    <div className="p-4 border rounded flex flex-col gap-3">
-      <div className="text-lg font-semibold">Crear Propuesta</div>
-      <div className="flex flex-col gap-2">
-        <label className="text-sm">Beneficiario</label>
-        <input
-          className="border px-3 py-2 rounded"
-          placeholder="0x..."
-          value={recipient}
-          onChange={(e) => setRecipient(e.target.value)}
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          className="border px-3 py-2 rounded w-40"
-          value={amountEth}
-          onChange={(e) => setAmountEth(e.target.value)}
-        />
-        <span>ETH</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-sm">Deadline en</span>
-        <input
-          type="number"
-          min={1}
-          className="border px-3 py-2 rounded w-24"
-          value={deadlineHours}
-          onChange={(e) => setDeadlineHours(parseInt(e.target.value || "0", 10))}
-        />
-        <span className="text-sm">horas</span>
-      </div>
-      <div className="flex flex-col gap-2">
-        <label className="text-sm">Descripción</label>
-        <textarea
-          className="border px-3 py-2 rounded"
-          rows={3}
-          placeholder="Describe la propuesta"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
+    <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6 flex flex-col gap-5">
+      <h2 className="text-2xl font-semibold text-neutral-800">Crear Propuesta</h2>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-neutral-700">Beneficiario</label>
+          <input
+            className="border border-neutral-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            placeholder="0x..."
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2 flex-1">
+            <label className="text-sm font-medium text-neutral-700">Monto (ETH)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="border border-neutral-300 px-4 py-2.5 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                value={amountEth}
+                onChange={(e) => setAmountEth(e.target.value)}
+                placeholder="0.00"
+              />
+              <span className="text-neutral-600 font-medium">ETH</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 w-32">
+            <label className="text-sm font-medium text-neutral-700">Deadline</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                className="border border-neutral-300 px-4 py-2.5 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                value={deadlineHours}
+                onChange={(e) => setDeadlineHours(parseInt(e.target.value || "0", 10))}
+              />
+              <span className="text-sm text-neutral-600">h</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-neutral-700">Descripción</label>
+          <textarea
+            className="border border-neutral-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            rows={4}
+            placeholder="Describe la propuesta..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
       </div>
       <button
         onClick={onCreate}
         disabled={sending || !address}
-        className="px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50"
+        className="px-6 py-2.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
       >
         {sending ? "Creando..." : "Crear Propuesta"}
       </button>

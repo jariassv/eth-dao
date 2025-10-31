@@ -91,8 +91,23 @@ export const DAOVOTING_ABI = [
       { "name": "user", "type": "address" }
     ],
     "outputs": [{ "name": "", "type": "uint8" }]
+  },
+  {
+    "type": "function",
+    "name": "executeProposal",
+    "stateMutability": "nonpayable",
+    "inputs": [{ "name": "proposalId", "type": "uint256" }],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "EXECUTION_DELAY",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint256" }]
   }
 ] as const;
+
 
 // ABI para versión antigua del contrato (sin description)
 export const DAOVOTING_ABI_OLD = [

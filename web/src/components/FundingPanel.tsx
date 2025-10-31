@@ -128,30 +128,35 @@ export function FundingPanel() {
   };
 
   return (
-    <div className="p-4 border rounded flex flex-col gap-3">
-      <div className="text-lg font-semibold">Financiar DAO</div>
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          className="border px-3 py-2 rounded w-40"
-          value={amountEth}
-          onChange={(e) => setAmountEth(e.target.value)}
-        />
-        <span>ETH</span>
+    <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6 flex flex-col gap-5">
+      <h2 className="text-2xl font-semibold text-neutral-800">Financiar DAO</h2>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="border border-neutral-300 px-4 py-2.5 rounded-lg w-40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={amountEth}
+            onChange={(e) => setAmountEth(e.target.value)}
+            placeholder="0.00"
+          />
+          <span className="text-neutral-600 font-medium">ETH</span>
+        </div>
         <button
           onClick={onFund}
           disabled={sending || !address}
-          className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50"
+          className="px-6 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
         >
           {sending ? "Enviando..." : "Depositar"}
         </button>
       </div>
       {error && <div className="text-xs text-red-600">{error}</div>}
-      <div className="text-sm text-neutral-700">
-        <div>Tu balance en el DAO: <b>{userBalance}</b> ETH</div>
-        <div>Balance total del DAO: <b>{daoBalance}</b> ETH</div>
+      <div className="bg-neutral-50 rounded-lg p-4">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-neutral-600">Tu balance en el DAO:</span>
+          <span className="font-semibold text-neutral-800">{userBalance} ETH</span>
+        </div>
       </div>
       {!DAO_ADDRESS && (
         <div className="text-xs text-yellow-700 bg-yellow-50 p-2 rounded">

@@ -6,26 +6,17 @@ export function ConnectWallet() {
   const { address, chainId, isConnecting, error, connect } = useWallet();
 
   if (address) {
-    return (
-      <div className="flex items-center gap-3 p-3 rounded border border-neutral-300 bg-white/50">
-        <span className="text-sm font-medium">Conectado:</span>
-        <span className="text-xs font-mono">{address}</span>
-        <span className="text-xs text-neutral-500">ChainId: {chainId ?? "-"}</span>
-      </div>
-    );
+    return null; // No mostrar nada si está conectado (el header mostrará la info)
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <button
-        onClick={connect}
-        disabled={isConnecting}
-        className="px-4 py-2 rounded bg-black text-white hover:bg-neutral-800 disabled:opacity-50"
-      >
-        {isConnecting ? "Conectando..." : "Conectar MetaMask"}
-      </button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
-    </div>
+    <button
+      onClick={connect}
+      disabled={isConnecting}
+      className="px-5 py-2.5 rounded-lg bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50 text-sm font-semibold transition-colors shadow-sm"
+    >
+      {isConnecting ? "Conectando..." : "Conectar"}
+    </button>
   );
 }
 

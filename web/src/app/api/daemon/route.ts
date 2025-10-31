@@ -16,6 +16,7 @@ const ABI = [
     ], name: "", type: "tuple" }
   ]},
   { type: "function", name: "executeProposal", stateMutability: "nonpayable", inputs: [{ name: "proposalId", type: "uint256" }], outputs: [] },
+  { type: "function", name: "EXECUTION_DELAY", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 
 export async function GET(_req: NextRequest) {
@@ -35,8 +36,18 @@ export async function GET(_req: NextRequest) {
     const wallet = new ethers.Wallet(pk, provider);
     const contract = new ethers.Contract(dao, ABI as any, wallet);
 
+    // Obtener el timestamp del bloque actual de Ethereum (no el tiempo del sistema)
+    const blockNumber = await provider.getBlockNumber();
+    const block = await provider.getBlock(blockNumber);
+    if (!block?.timestamp) {
+      return Response.json({ error: "could_not_get_block_timestamp" }, { status: 500 });
+    }
+    const now = BigInt(block.timestamp);
+    
+    // Obtener EXECUTION_DELAY del contrato
+    const executionDelay = await contract.EXECUTION_DELAY();
+    
     const next: bigint = await contract.nextProposalId();
-    const now = BigInt(Math.floor(Date.now() / 1000));
 
     const executed: Array<{ id: string; tx: string }> = [];
     const skipped: Array<{ id: string; reason: string }> = [];
@@ -51,9 +62,10 @@ export async function GET(_req: NextRequest) {
         skipped.push({ id: i.toString(), reason: "already_executed" });
         continue;
       }
-      // Elegible si: deadline pasado y votosFor > votosAgainst
-      if (now <= p.deadline) {
-        skipped.push({ id: i.toString(), reason: "deadline_not_passed" });
+      // Elegible si: deadline + EXECUTION_DELAY pasado y votosFor > votosAgainst
+      const executionTime = p.deadline + executionDelay;
+      if (now < executionTime) {
+        skipped.push({ id: i.toString(), reason: `deadline_not_passed (deadline: ${p.deadline.toString()}, executionTime: ${executionTime.toString()}, now: ${now.toString()})` });
         continue;
       }
       if (p.votesFor <= p.votesAgainst) {

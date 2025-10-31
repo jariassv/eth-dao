@@ -55,46 +55,8 @@ else
     fi
 fi
 
-# 2. Verificar e iniciar Next.js
-echo -e "${GREEN}[2/4] Verificando Next.js...${NC}"
-if check_port 3000; then
-    echo -e "${GREEN}✓ Next.js ya está corriendo en puerto 3000${NC}"
-    echo -e "${YELLOW}Reiniciando Next.js para cargar nuevas variables de entorno...${NC}"
-    kill_port 3000
-    sleep 2
-fi
-
-echo -e "${YELLOW}Iniciando Next.js en background...${NC}"
-cd "$WEB_DIR"
-if [ ! -f ".env.local" ]; then
-    echo -e "${YELLOW}Creando .env.local desde .env.local.example...${NC}"
-    if [ -f ".env.local.example" ]; then
-        cp .env.local.example .env.local
-    else
-        cat > .env.local << EOF
-NEXT_PUBLIC_DAO_ADDRESS=0x0000000000000000000000000000000000000000
-NEXT_PUBLIC_FORWARDER_ADDRESS=0x0000000000000000000000000000000000000000
-NEXT_PUBLIC_CHAIN_ID=31337
-RPC_URL=http://127.0.0.1:8545
-RELAYER_PRIVATE_KEY=0x
-RELAYER_ADDRESS=0x
-EOF
-    fi
-fi
-
-nohup npm run dev > /tmp/nextjs.log 2>&1 &
-NEXT_PID=$!
-echo $NEXT_PID > /tmp/nextjs.pid
-sleep 3
-
-if check_port 3000; then
-    echo -e "${GREEN}✓ Next.js iniciado correctamente (PID: $NEXT_PID)${NC}"
-else
-    echo -e "${YELLOW}⚠ Next.js puede estar iniciando aún, verifica manualmente${NC}"
-fi
-
-# 3. Desplegar contratos
-echo -e "${GREEN}[3/4] Desplegando contratos...${NC}"
+# 2. Desplegar contratos (antes de iniciar Next.js para tener las direcciones)
+echo -e "${GREEN}[2/4] Desplegando contratos...${NC}"
 cd "$SC_DIR"
 
 # Obtener primera private key de Anvil (si no está definida)
@@ -163,8 +125,8 @@ if [ -z "$RELAYER_PRIVATE_KEY" ] || [ "$RELAYER_PRIVATE_KEY" = "0x" ]; then
     RELAYER_ADDRESS=$(cast wallet address $RELAYER_PRIVATE_KEY 2>/dev/null || echo "0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 fi
 
-# 4. Actualizar .env.local
-echo -e "${GREEN}[4/4] Actualizando .env.local...${NC}"
+# 3. Actualizar .env.local
+echo -e "${GREEN}[3/4] Actualizando .env.local...${NC}"
 cd "$WEB_DIR"
 
 ENV_FILE=".env.local"
@@ -188,6 +150,28 @@ RELAYER_ADDRESS=$RELAYER_ADDRESS
 EOF
 
 echo -e "${GREEN}✓ .env.local actualizado${NC}"
+
+# 4. Verificar e iniciar/reiniciar Next.js para cargar nuevas variables
+echo -e "${GREEN}[4/4] Verificando Next.js...${NC}"
+if check_port 3000; then
+    echo -e "${YELLOW}Reiniciando Next.js para cargar nuevas variables de entorno...${NC}"
+    kill_port 3000
+    sleep 2
+fi
+
+echo -e "${YELLOW}Iniciando Next.js en background...${NC}"
+cd "$WEB_DIR"
+
+nohup npm run dev > /tmp/nextjs.log 2>&1 &
+NEXT_PID=$!
+echo $NEXT_PID > /tmp/nextjs.pid
+sleep 3
+
+if check_port 3000; then
+    echo -e "${GREEN}✓ Next.js iniciado correctamente (PID: $NEXT_PID)${NC}"
+else
+    echo -e "${YELLOW}⚠ Next.js puede estar iniciando aún, verifica manualmente${NC}"
+fi
 
 # Mostrar resumen
 echo -e "\n${GREEN}=== Resumen ===${NC}"

@@ -1,28 +1,43 @@
-import Image from "next/image";
-import { ConnectWallet } from "../components/ConnectWallet";
+"use client";
+
+import { useState } from "react";
+import { Header } from "../components/Header";
+import { Sidebar } from "../components/Sidebar";
 import { FundingPanel } from "../components/FundingPanel";
 import { CreateProposal } from "../components/CreateProposal";
 import { ProposalList } from "../components/ProposalList";
 
+type TabId = "fund" | "create" | "proposals";
+
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabId>("proposals");
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "fund":
+        return <FundingPanel />;
+      case "create":
+        return <CreateProposal />;
+      case "proposals":
+        return <ProposalList />;
+      default:
+        return <ProposalList />;
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-start py-16 px-6 gap-8 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-stretch gap-6 w-full">
-          <ConnectWallet />
-          <FundingPanel />
-          <CreateProposal />
-          <ProposalList />
+    <div className="flex flex-col min-h-screen bg-neutral-50">
+      <Header />
+      <div className="flex flex-1 justify-center">
+        <div className="flex max-w-7xl w-full">
+          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          <main className="flex-1 p-8 overflow-y-auto">
+            <div className="max-w-3xl mx-auto">
+              {renderContent()}
+            </div>
+          </main>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

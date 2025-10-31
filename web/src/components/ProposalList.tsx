@@ -10,14 +10,16 @@ export function ProposalList() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [usingOldABI, setUsingOldABI] = useState(false);
+  const [now, setNow] = useState<number>(0);
 
-  const contract = useMemo(() => {
-    if (!DAO_ADDRESS) return null;
+  const { contract, provider } = useMemo(() => {
+    if (!DAO_ADDRESS) return { contract: null, provider: null };
     const ethereum = getEthereum();
-    if (!ethereum) return null;
-    const provider = new ethers.BrowserProvider(ethereum as any);
+    if (!ethereum) return { contract: null, provider: null };
+    const providerInstance = new ethers.BrowserProvider(ethereum as any);
     const abi = usingOldABI ? DAOVOTING_ABI_OLD : DAOVOTING_ABI;
-    return new ethers.Contract(DAO_ADDRESS, abi as any, provider);
+    const contractInstance = new ethers.Contract(DAO_ADDRESS, abi as any, providerInstance);
+    return { contract: contractInstance, provider: providerInstance };
   }, [usingOldABI]);
 
   async function loadProposals() {
@@ -88,40 +90,59 @@ export function ProposalList() {
     }
   }
 
+  // Obtener el timestamp del bloque actual de Ethereum
+  async function updateBlockTimestamp() {
+    if (!provider) return;
+    try {
+      const blockNumber = await provider.getBlockNumber();
+      const block = await provider.getBlock(blockNumber);
+      if (block?.timestamp) {
+        setNow(Number(block.timestamp));
+      }
+    } catch (e) {
+      console.error("Error al obtener timestamp del bloque:", e);
+      // Fallback al tiempo del sistema si falla
+      setNow(Math.floor(Date.now() / 1000));
+    }
+  }
+
   useEffect(() => {
     void loadProposals();
+    void updateBlockTimestamp();
+    // Actualizar cada 5 segundos
+    const interval = setInterval(() => {
+      void updateBlockTimestamp();
+    }, 5000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contract, usingOldABI]);
-
-  const now = Math.floor(Date.now() / 1000);
+  }, [contract, provider, usingOldABI]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="text-lg font-semibold">Propuestas</div>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-semibold text-neutral-800">Propuestas</h2>
+        <button
+          onClick={() => loadProposals()}
+          className="px-4 py-2 rounded-lg border border-neutral-300 bg-white hover:bg-neutral-50 text-sm font-medium transition-colors"
+        >Actualizar</button>
+      </div>
       {error && <div className="text-xs text-red-600">{error}</div>}
       {!DAO_ADDRESS && (
         <div className="text-xs text-yellow-700 bg-yellow-50 p-2 rounded">
           Define NEXT_PUBLIC_DAO_ADDRESS en .env.local para listar propuestas.
         </div>
       )}
-      {DAO_ADDRESS && (
-        <div className="text-xs text-neutral-500 font-mono">
-          DAO: {DAO_ADDRESS}
-        </div>
-      )}
       {proposals.length === 0 ? (
-        <div className="text-sm text-neutral-500">No hay propuestas</div>
+        <div className="text-center py-12 bg-white rounded-lg border border-neutral-200">
+          <p className="text-neutral-500">No hay propuestas disponibles</p>
+        </div>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           {proposals.map((p) => (
             <ProposalCard key={p.id.toString()} p={p} now={now} />
           ))}
         </div>
       )}
-      <button
-        onClick={() => loadProposals()}
-        className="self-start px-3 py-1 rounded border hover:bg-neutral-50"
-      >Actualizar</button>
     </div>
   );
 }
