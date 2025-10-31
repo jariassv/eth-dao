@@ -59,7 +59,7 @@ export function ProposalCard({ p, now }: { p: Proposal; now: number }) {
       </div>
       <div className="text-sm">Votos: ✅ {p.votesFor.toString()} | ❌ {p.votesAgainst.toString()} | ⚪ {p.votesAbstain.toString()}</div>
       <div className="text-sm">Estado: <b>{status}</b></div>
-      {status === "Activa" && <VoteButtons proposalId={p.id} />}
+      {status === "Activa" && <VoteButtons proposalId={p.id} proposalDeadline={p.deadline} />}
     </div>
   );
 }

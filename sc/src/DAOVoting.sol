@@ -134,6 +134,14 @@ contract DAOVoting is ERC2771Context {
     function getUserBalance(address user) external view returns (uint256) {
         return userBalances[user];
     }
+
+    function hasVotedForProposal(uint256 proposalId, address user) external view returns (bool) {
+        return hasVoted[proposalId][user];
+    }
+
+    function getUserVote(uint256 proposalId, address user) external view returns (VoteType) {
+        return userVote[proposalId][user];
+    }
 }
 
 

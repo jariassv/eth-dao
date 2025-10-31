@@ -42,6 +42,12 @@ export function CreateProposal() {
       const tx = await c.createProposal(recipient, amount, deadline, description);
       await tx.wait();
       setInfo("Propuesta creada correctamente");
+      
+      // Limpiar formulario
+      setRecipient("");
+      setAmountEth("1.0");
+      setDeadlineHours(24);
+      setDescription("");
     } catch (e: any) {
       const errorMsg = parseTransactionError(e);
       setError(errorMsg);

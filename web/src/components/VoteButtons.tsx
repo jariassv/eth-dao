@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { DAO_ADDRESS, DAOVOTING_ABI } from "../lib/contracts";
 import { FORWARDER_ADDRESS, MINIMAL_FORWARDER_ABI, FORWARD_REQUEST_TYPES, buildEip712Domain } from "../lib/forwarder";
@@ -8,11 +8,14 @@ import { getEthereum } from "../lib/ethereum";
 import { useWallet } from "../hooks/useWallet";
 import { parseTransactionError } from "../lib/errorHandler";
 
-export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disabled?: boolean }) {
+export function VoteButtons({ proposalId, disabled, proposalDeadline }: { proposalId: bigint; disabled?: boolean; proposalDeadline?: bigint }) {
   const { address } = useWallet();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selfPayGasless, setSelfPayGasless] = useState(false);
+  const [canVote, setCanVote] = useState(false);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [userVote, setUserVote] = useState<number | null>(null);
 
   const contract = useMemo(() => {
     if (!DAO_ADDRESS) return null;
@@ -23,8 +26,49 @@ export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disa
       const signer = await provider.getSigner();
       return new ethers.Contract(DAO_ADDRESS, DAOVOTING_ABI as any, signer);
     }
-    return { get };
+    return { get, provider };
   }, []);
+
+  // Verificar si puede votar y si ya votó
+  useEffect(() => {
+    if (!contract || !address || !proposalId) {
+      setCanVote(false);
+      setHasVoted(false);
+      return;
+    }
+
+    const checkVoteStatus = async () => {
+      try {
+        const provider = contract.provider;
+        const readContract = new ethers.Contract(DAO_ADDRESS, DAOVOTING_ABI as any, provider);
+        
+        // Verificar si tiene balance (puede votar)
+        const balance = await readContract.getUserBalance(address);
+        const hasBalance = balance > 0n;
+        
+        // Verificar si la propuesta aún está activa
+        const now = Math.floor(Date.now() / 1000);
+        const isActive = proposalDeadline ? Number(proposalDeadline) > now : true;
+        
+        // Verificar si ya votó
+        const voted = await readContract.hasVotedForProposal(proposalId, address);
+        let voteType = null;
+        if (voted) {
+          voteType = Number(await readContract.getUserVote(proposalId, address));
+        }
+        
+        setCanVote(hasBalance && isActive && !voted);
+        setHasVoted(voted);
+        setUserVote(voteType);
+      } catch (e) {
+        console.error("Error al verificar estado de votación:", e);
+        setCanVote(false);
+        setHasVoted(false);
+      }
+    };
+
+    checkVoteStatus();
+  }, [contract, address, proposalId, proposalDeadline]);
 
   async function sendGasless(voteType: number) {
     if (!DAO_ADDRESS || !FORWARDER_ADDRESS) throw new Error("Falta configuración de direcciones");
@@ -103,6 +147,10 @@ export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disa
         const tx = await c.vote(proposalId, voteType);
         await tx.wait();
       }
+      // Refrescar estado después de votar
+      setHasVoted(true);
+      setUserVote(voteType);
+      setCanVote(false);
     } catch (e: any) {
       const errorMsg = parseTransactionError(e);
       setError(errorMsg);
@@ -112,6 +160,29 @@ export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disa
     }
   };
 
+  const getVoteLabel = (voteType: number) => {
+    if (voteType === 0) return "En contra";
+    if (voteType === 1) return "A favor";
+    if (voteType === 2) return "Abstención";
+    return "Desconocido";
+  };
+
+  // Si ya votó, mostrar mensaje
+  if (hasVoted && userVote !== null) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-emerald-700 font-medium">
+          ✅ Voted: {getVoteLabel(userVote)}
+        </span>
+      </div>
+    );
+  }
+
+  // Si no puede votar, no mostrar nada
+  if (!canVote) {
+    return null;
+  }
+
   return (
     <div className="flex items-center gap-2">
       <label className="flex items-center gap-2 text-xs mr-2">
@@ -120,17 +191,17 @@ export function VoteButtons({ proposalId, disabled }: { proposalId: bigint; disa
       </label>
       <button
         onClick={() => sendVote(1)}
-        disabled={sending || disabled}
+        disabled={sending || disabled || !canVote}
         className="px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50"
       >A favor</button>
       <button
         onClick={() => sendVote(0)}
-        disabled={sending || disabled}
+        disabled={sending || disabled || !canVote}
         className="px-3 py-1 rounded bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50"
       >En contra</button>
       <button
         onClick={() => sendVote(2)}
-        disabled={sending || disabled}
+        disabled={sending || disabled || !canVote}
         className="px-3 py-1 rounded bg-neutral-600 text-white hover:bg-neutral-500 disabled:opacity-50"
       >Abstención</button>
       {error && <span className="text-xs text-red-600 ml-2">{error}</span>}
