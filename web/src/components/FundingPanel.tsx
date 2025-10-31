@@ -32,26 +32,52 @@ export function FundingPanel() {
   }, []);
 
   async function refreshBalances() {
+    if (!contract?.instance) {
+      setUserBalance("-");
+      setDaoBalance("-");
+      return;
+    }
+
+    // Si no hay dirección conectada, limpiar balances
+    if (!address) {
+      setUserBalance("0");
+      setDaoBalance("-");
+      return;
+    }
+
     try {
-      if (!contract?.instance) return;
-      const [ub, tb] = await Promise.all([
-        address ? contract.instance.getUserBalance(address) : Promise.resolve(0n),
-        contract.instance.totalDaoBalance(),
-      ]);
-      setUserBalance(ethers.formatEther(ub));
-      setDaoBalance(ethers.formatEther(tb));
+      // Primero obtener el balance del usuario específico
+      const userBalanceBigInt = await contract.instance.getUserBalance(address);
+      const ub = ethers.formatEther(userBalanceBigInt);
+      
+      // Luego obtener el balance total del DAO
+      const totalBalanceBigInt = await contract.instance.totalDaoBalance();
+      const tb = ethers.formatEther(totalBalanceBigInt);
+      
+      // Actualizar estados con los valores obtenidos
+      setUserBalance(ub);
+      setDaoBalance(tb);
     } catch (e: any) {
       // Ignorar errores de detección automática (como symbol(), decimals(), etc.)
-      if (e?.code === "CALL_EXCEPTION" && e?.data === null) {
+      if (e?.code === "CALL_EXCEPTION" && e?.data === null && !e?.transaction) {
         // Es un error de detección automática, ignorar silenciosamente
         return;
       }
       console.warn("Error al leer balances:", e);
-      // No mostrar error en UI para no confundir al usuario
+      // En caso de error, mostrar 0 para el usuario por seguridad
+      setUserBalance("0");
     }
   }
 
   useEffect(() => {
+    // Limpiar balances inmediatamente cuando cambia la dirección
+    if (!address) {
+      setUserBalance("0");
+      setDaoBalance("-");
+      return;
+    }
+
+    // Refrescar balances con la nueva dirección
     void refreshBalances();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, contract?.instance]);
