@@ -20,24 +20,57 @@ export function useWallet() {
     try {
       setState((s) => ({ ...s, isConnecting: true, error: null }));
       const accounts: string[] = await ethereum.request({ method: "eth_requestAccounts" });
-      const chainIdHex: string = await ethereum.request({ method: "eth_chainId" });
-      const chainId = parseInt(chainIdHex, 16);
+      let chainIdHex: string = await ethereum.request({ method: "eth_chainId" });
+      let chainId = parseInt(chainIdHex, 16);
+      
       if (chainId !== targetChainId) {
         await switchToChain(toChainIdHex(targetChainId));
+        // Esperar un poco y verificar el chainId actualizado
+        await new Promise(resolve => setTimeout(resolve, 500));
+        chainIdHex = await ethereum.request({ method: "eth_chainId" });
+        chainId = parseInt(chainIdHex, 16);
       }
-      setState({ address: accounts[0] ?? null, chainId: targetChainId, isConnecting: false, error: null });
+      
+      setState({ address: accounts[0] ?? null, chainId, isConnecting: false, error: null });
     } catch (e: any) {
       setState((s) => ({ ...s, isConnecting: false, error: e?.message ?? "Error al conectar" }));
     }
   }, [targetChainId]);
 
+  // Verificar cuenta conectada al montar y escuchar eventos
   useEffect(() => {
     const ethereum = getEthereum();
     if (!ethereum?.on) return;
-    const onAccountsChanged = (accs: string[]) => setState((s) => ({ ...s, address: accs[0] ?? null }));
-    const onChainChanged = (hex: string) => setState((s) => ({ ...s, chainId: parseInt(hex, 16) }));
+
+    // Verificar si hay cuenta conectada
+    const checkInitialAccount = async () => {
+      try {
+        const accounts: string[] = await ethereum.request({ method: "eth_accounts" });
+        const chainIdHex: string = await ethereum.request({ method: "eth_chainId" });
+        const chainId = parseInt(chainIdHex, 16);
+        if (accounts.length > 0) {
+          setState((s) => ({ ...s, address: accounts[0] ?? null, chainId }));
+        }
+      } catch (e) {
+        console.error("Error al verificar cuenta inicial:", e);
+      }
+    };
+
+    checkInitialAccount();
+
+    // Escuchar cambios de cuenta
+    const onAccountsChanged = (accs: string[]) => {
+      setState((s) => ({ ...s, address: accs[0] ?? null }));
+    };
+
+    // Escuchar cambios de red (necesita recargar página según MetaMask docs)
+    const onChainChanged = () => {
+      window.location.reload();
+    };
+
     ethereum.on("accountsChanged", onAccountsChanged);
     ethereum.on("chainChanged", onChainChanged);
+
     return () => {
       ethereum.removeListener?.("accountsChanged", onAccountsChanged);
       ethereum.removeListener?.("chainChanged", onChainChanged);
