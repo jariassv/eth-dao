@@ -50,11 +50,23 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
         const now = Math.floor(Date.now() / 1000);
         const isActive = proposalDeadline ? Number(proposalDeadline) > now : true;
         
-        // Verificar si ya votó
-        const voted = await readContract.hasVotedForProposal(proposalId, address);
+        // Intentar verificar si ya votó (solo si el contrato tiene estas funciones)
+        let voted = false;
         let voteType = null;
-        if (voted) {
-          voteType = Number(await readContract.getUserVote(proposalId, address));
+        try {
+          voted = await readContract.hasVotedForProposal(proposalId, address);
+          if (voted) {
+            voteType = Number(await readContract.getUserVote(proposalId, address));
+          }
+        } catch (voteCheckError: any) {
+          // Si el contrato no tiene estas funciones (versión antigua), ignorar el error
+          // En ese caso, asumimos que no podemos verificar si ya votó, así que siempre mostramos los botones
+          if (voteCheckError?.code === "CALL_EXCEPTION" || voteCheckError?.code === "BAD_DATA") {
+            console.log("Contrato antiguo detectado: no se puede verificar estado de voto");
+            // No hacer nada, seguir con voted = false
+          } else {
+            throw voteCheckError; // Re-lanzar otros errores
+          }
         }
         
         setCanVote(hasBalance && isActive && !voted);
@@ -62,6 +74,7 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
         setUserVote(voteType);
       } catch (e) {
         console.error("Error al verificar estado de votación:", e);
+        // En caso de error, no mostrar los botones por seguridad
         setCanVote(false);
         setHasVoted(false);
       }
