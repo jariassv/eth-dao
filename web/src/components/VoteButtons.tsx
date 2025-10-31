@@ -29,21 +29,33 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
     return { get, provider };
   }, []);
 
+  // Limpiar estado cuando cambia la dirección o proposalId
+  useEffect(() => {
+    setHasVoted(false);
+    setUserVote(null);
+    setCanVote(false);
+    setError(null);
+  }, [address, proposalId]);
+
   // Verificar si puede votar y si ya votó
   useEffect(() => {
     if (!contract || !address || !proposalId) {
       setCanVote(false);
       setHasVoted(false);
+      setUserVote(null);
       return;
     }
 
     const checkVoteStatus = async () => {
+      // Capturar la dirección actual para evitar condiciones de carrera
+      const currentAddress = address;
+      
       try {
         const provider = contract.provider;
         const readContract = new ethers.Contract(DAO_ADDRESS, DAOVOTING_ABI as any, provider);
         
-        // Verificar si tiene balance (puede votar)
-        const balance = await readContract.getUserBalance(address);
+        // Verificar si tiene balance (puede votar) - usar la dirección capturada
+        const balance = await readContract.getUserBalance(currentAddress);
         const hasBalance = balance > 0n;
         
         // Verificar si la propuesta aún está activa
@@ -54,10 +66,11 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
         let voted = false;
         let voteType = null;
         try {
-          voted = await readContract.hasVotedForProposal(proposalId, address);
+          voted = await readContract.hasVotedForProposal(proposalId, currentAddress);
           if (voted) {
-            voteType = Number(await readContract.getUserVote(proposalId, address));
+            voteType = Number(await readContract.getUserVote(proposalId, currentAddress));
           }
+          console.log(`[VoteButtons] Verificando voto para ${currentAddress} en propuesta ${proposalId}: voted=${voted}, voteType=${voteType}`);
         } catch (voteCheckError: any) {
           // Si el contrato no tiene estas funciones (versión antigua), ignorar el error
           // En ese caso, asumimos que no podemos verificar si ya votó, así que siempre mostramos los botones
@@ -69,14 +82,20 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
           }
         }
         
-        setCanVote(hasBalance && isActive && !voted);
-        setHasVoted(voted);
-        setUserVote(voteType);
+        // Solo actualizar si la dirección no ha cambiado mientras se ejecutaba
+        if (currentAddress === address) {
+          setCanVote(hasBalance && isActive && !voted);
+          setHasVoted(voted);
+          setUserVote(voteType);
+        }
       } catch (e) {
-        console.error("Error al verificar estado de votación:", e);
-        // En caso de error, no mostrar los botones por seguridad
-        setCanVote(false);
-        setHasVoted(false);
+        console.error(`[VoteButtons] Error al verificar estado de votación para ${currentAddress}:`, e);
+        // Solo actualizar si la dirección no ha cambiado mientras se ejecutaba
+        if (currentAddress === address) {
+          setCanVote(false);
+          setHasVoted(false);
+          setUserVote(null);
+        }
       }
     };
 
@@ -160,10 +179,25 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
         const tx = await c.vote(proposalId, voteType);
         await tx.wait();
       }
-      // Refrescar estado después de votar
-      setHasVoted(true);
-      setUserVote(voteType);
-      setCanVote(false);
+      // Refrescar estado desde el contrato después de votar
+      // (el useEffect se ejecutará automáticamente cuando cambien las dependencias)
+      // Pero también forzamos una verificación inmediata
+      const provider = contract.provider;
+      const readContract = new ethers.Contract(DAO_ADDRESS, DAOVOTING_ABI as any, provider);
+      try {
+        const voted = await readContract.hasVotedForProposal(proposalId, address);
+        if (voted) {
+          const voteTypeFromContract = Number(await readContract.getUserVote(proposalId, address));
+          setHasVoted(true);
+          setUserVote(voteTypeFromContract);
+          setCanVote(false);
+        }
+      } catch (e) {
+        // Si falla, usar valores locales como fallback
+        setHasVoted(true);
+        setUserVote(voteType);
+        setCanVote(false);
+      }
     } catch (e: any) {
       const errorMsg = parseTransactionError(e);
       setError(errorMsg);
