@@ -36,8 +36,22 @@ export function CreateProposal() {
     if (!contract) return setError("Contrato no configurado");
     try {
       setSending(true);
+      
+      // Obtener el timestamp del bloque actual de Ethereum (no Date.now())
+      const provider = new ethers.BrowserProvider(getEthereum() as any);
+      const blockNumber = await provider.getBlockNumber();
+      const block = await provider.getBlock(blockNumber);
+      if (!block?.timestamp) {
+        throw new Error("No se pudo obtener el timestamp del bloque");
+      }
+      const currentTimestamp = Number(block.timestamp);
+      
       const amount = ethers.parseEther(amountEth || "0");
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineHours * 3600);
+      // Calcular deadline basado en el timestamp del bloque + horas
+      const deadline = BigInt(currentTimestamp + deadlineHours * 3600);
+      
+      console.log(`[CreateProposal] Creando propuesta con deadline: ${deadline} (timestamp actual: ${currentTimestamp}, horas: ${deadlineHours})`);
+      
       const c = await contract.get();
       const tx = await c.createProposal(recipient, amount, deadline, description);
       await tx.wait();

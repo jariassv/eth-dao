@@ -113,7 +113,31 @@ export function ProposalList() {
     const interval = setInterval(() => {
       void updateBlockTimestamp();
     }, 5000);
-    return () => clearInterval(interval);
+    
+    // Escuchar evento de voto para refrescar automáticamente
+    const handleVoteSubmitted = () => {
+      console.log('[ProposalList] Voto detectado, refrescando propuestas...');
+      setTimeout(() => {
+        void loadProposals();
+      }, 3000); // Esperar 3 segundos para que la transacción se confirme
+    };
+    
+    // Escuchar evento de ejecución de propuestas
+    const handleProposalsExecuted = () => {
+      console.log('[ProposalList] Propuestas ejecutadas, refrescando lista...');
+      setTimeout(() => {
+        void loadProposals();
+      }, 2000);
+    };
+    
+    window.addEventListener('voteSubmitted', handleVoteSubmitted);
+    window.addEventListener('proposalsExecuted', handleProposalsExecuted);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('voteSubmitted', handleVoteSubmitted);
+      window.removeEventListener('proposalsExecuted', handleProposalsExecuted);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contract, provider, usingOldABI]);
 

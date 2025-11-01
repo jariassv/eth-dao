@@ -102,7 +102,7 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
     checkVoteStatus();
   }, [contract, address, proposalId, proposalDeadline]);
 
-  async function sendGasless(voteType: number) {
+  async function sendGasless(voteType: number, useRelayer: boolean) {
     if (!DAO_ADDRESS || !FORWARDER_ADDRESS) throw new Error("Falta configuración de direcciones");
     const ethereum = getEthereum();
     if (!ethereum) throw new Error("MetaMask no encontrado");
@@ -124,8 +124,8 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
     const domain = buildEip712Domain(chainId, FORWARDER_ADDRESS);
     const signature = await (signer as any).signTypedData(domain, FORWARD_REQUEST_TYPES, req);
 
-    if (selfPayGasless) {
-      // El usuario paga gas: llama execute() directamente
+    if (!useRelayer) {
+      // El usuario paga gas: llama execute() directamente en el forwarder
       const fwdWithSigner = new ethers.Contract(FORWARDER_ADDRESS, MINIMAL_FORWARDER_ABI as any, signer);
       const tx = await fwdWithSigner.execute(
         {
@@ -141,7 +141,7 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
       );
       return await tx.wait();
     } else {
-      // Usa relayer backend
+      // Usa relayer backend (relayer paga el gas)
       const res = await fetch("/api/relay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -162,7 +162,19 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
         const j = await res.json().catch(() => ({}));
         throw new Error(j?.error || "relay_failed");
       }
-      return await res.json();
+      const result = await res.json();
+      
+      // El relayer devuelve { hash: "0x..." }
+      // No esperamos aquí la confirmación, solo retornamos el hash
+      // La confirmación se verá en la verificación posterior del estado
+      const txHash = result.txHash || result.hash;
+      if (txHash) {
+        console.log(`[VoteButtons] Transacción enviada por relayer: ${txHash}`);
+        // Retornar el hash para que se pueda verificar después
+        return { hash: txHash, confirmed: false };
+      }
+      
+      return result;
     }
   }
 
@@ -172,31 +184,83 @@ export function VoteButtons({ proposalId, disabled, proposalDeadline }: { propos
     if (!contract) return setError("Contrato no configurado");
     try {
       setSending(true);
-      if (FORWARDER_ADDRESS) {
-        await sendGasless(voteType);
-      } else {
+      
+      // Lógica de votación:
+      // - Si NO hay forwarder: voto directo al contrato (usuario paga gas)
+      // - Si hay forwarder Y checkbox marcado (selfPayGasless = true): usuario paga gas vía forwarder
+      // - Si hay forwarder Y checkbox NO marcado (selfPayGasless = false): relayer paga gas (gasless)
+      
+      if (!FORWARDER_ADDRESS) {
+        // No hay forwarder configurado: votar directamente al contrato
         const c = await contract.get();
         const tx = await c.vote(proposalId, voteType);
         await tx.wait();
+      } else if (selfPayGasless) {
+        // Checkbox marcado: usuario paga gas vía forwarder
+        await sendGasless(voteType, false);
+      } else {
+        // Checkbox NO marcado: relayer paga gas (gasless)
+        await sendGasless(voteType, true);
       }
+      // Para transacciones normales, ya están confirmadas (tx.wait())
+      // Para relayer, solo esperamos un poco y luego verificamos el estado
+      // Esperar un poco para que la transacción se propague
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       // Refrescar estado desde el contrato después de votar
-      // (el useEffect se ejecutará automáticamente cuando cambien las dependencias)
-      // Pero también forzamos una verificación inmediata
+      // Hacer varios intentos ya que la transacción puede tardar en confirmarse
       const provider = contract.provider;
       const readContract = new ethers.Contract(DAO_ADDRESS, DAOVOTING_ABI as any, provider);
-      try {
-        const voted = await readContract.hasVotedForProposal(proposalId, address);
-        if (voted) {
-          const voteTypeFromContract = Number(await readContract.getUserVote(proposalId, address));
-          setHasVoted(true);
-          setUserVote(voteTypeFromContract);
-          setCanVote(false);
+      
+      let attempts = 0;
+      const maxAttempts = 10; // Aumentar a 10 intentos
+      let confirmed = false;
+      
+      while (attempts < maxAttempts) {
+        try {
+          const voted = await readContract.hasVotedForProposal(proposalId, address);
+          if (voted) {
+            const voteTypeFromContract = Number(await readContract.getUserVote(proposalId, address));
+            setHasVoted(true);
+            setUserVote(voteTypeFromContract);
+            setCanVote(false);
+            confirmed = true;
+            console.log(`[VoteButtons] ✅ Voto confirmado después de ${attempts + 1} intentos`);
+            
+            // Disparar evento personalizado para que ProposalList se actualice
+            window.dispatchEvent(new CustomEvent('voteSubmitted', { detail: { proposalId: proposalId.toString() } }));
+            break;
+          }
+        } catch (e: any) {
+          // Si el contrato no tiene estas funciones, asumir que el voto fue exitoso
+          if (e?.code === "CALL_EXCEPTION" || e?.code === "BAD_DATA") {
+            console.log(`[VoteButtons] Contrato antiguo detectado, usando fallback`);
+            setHasVoted(true);
+            setUserVote(voteType);
+            setCanVote(false);
+            confirmed = true;
+            window.dispatchEvent(new CustomEvent('voteSubmitted', { detail: { proposalId: proposalId.toString() } }));
+            break;
+          }
+          console.log(`[VoteButtons] Intento ${attempts + 1}/${maxAttempts} falló, reintentando...`, e?.message || e);
         }
-      } catch (e) {
-        // Si falla, usar valores locales como fallback
+        
+        attempts++;
+        if (attempts < maxAttempts && !confirmed) {
+          // Esperar progresivamente más tiempo: 2s, 3s, 4s...
+          const delay = Math.min(2000 + (attempts * 500), 5000);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+      
+      // Si después de todos los intentos no se confirmó, usar valores locales como fallback
+      if (!confirmed && attempts === maxAttempts) {
+        console.warn(`[VoteButtons] ⚠️ No se pudo confirmar el voto después de ${maxAttempts} intentos, usando valores locales (el voto debería estar procesándose)`);
         setHasVoted(true);
         setUserVote(voteType);
         setCanVote(false);
+        // Disparar evento de todas formas para que la UI se actualice
+        window.dispatchEvent(new CustomEvent('voteSubmitted', { detail: { proposalId: proposalId.toString() } }));
       }
     } catch (e: any) {
       const errorMsg = parseTransactionError(e);

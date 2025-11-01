@@ -6,11 +6,15 @@ import { Sidebar } from "../components/Sidebar";
 import { FundingPanel } from "../components/FundingPanel";
 import { CreateProposal } from "../components/CreateProposal";
 import { ProposalList } from "../components/ProposalList";
+import { useDaemon } from "../hooks/useDaemon";
 
 type TabId = "fund" | "create" | "proposals";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("proposals");
+  
+  // Ejecutar daemon cada 30 segundos para ejecutar propuestas automáticamente
+  useDaemon(30000, true);
 
   const renderContent = () => {
     switch (activeTab) {
