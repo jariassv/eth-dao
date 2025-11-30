@@ -38,25 +38,20 @@ export function FundingPanel() {
       return;
     }
 
-    // Si no hay dirección conectada, limpiar balances
-    if (!address) {
-      setUserBalance("0");
-      setDaoBalance("-");
-      return;
-    }
-
     try {
-      // Primero obtener el balance del usuario específico
-      const userBalanceBigInt = await contract.instance.getUserBalance(address);
-      const ub = ethers.formatEther(userBalanceBigInt);
-      
-      // Luego obtener el balance total del DAO
+      // Siempre obtener el balance total del DAO (es información pública)
       const totalBalanceBigInt = await contract.instance.totalDaoBalance();
       const tb = ethers.formatEther(totalBalanceBigInt);
-      
-      // Actualizar estados con los valores obtenidos
-      setUserBalance(ub);
       setDaoBalance(tb);
+
+      // Si hay dirección conectada, obtener también el balance del usuario
+      if (address) {
+        const userBalanceBigInt = await contract.instance.getUserBalance(address);
+        const ub = ethers.formatEther(userBalanceBigInt);
+        setUserBalance(ub);
+      } else {
+        setUserBalance("0");
+      }
     } catch (e: any) {
       // Ignorar errores de detección automática (como symbol(), decimals(), etc.)
       if (e?.code === "CALL_EXCEPTION" && e?.data === null && !e?.transaction) {
@@ -64,21 +59,49 @@ export function FundingPanel() {
         return;
       }
       console.warn("Error al leer balances:", e);
-      // En caso de error, mostrar 0 para el usuario por seguridad
-      setUserBalance("0");
+      // En caso de error, mostrar valores por defecto
+      if (address) {
+        setUserBalance("0");
+      }
+      // Intentar mantener el balance del DAO si ya lo teníamos
     }
   }
 
   useEffect(() => {
-    // Limpiar balances inmediatamente cuando cambia la dirección
-    if (!address) {
-      setUserBalance("0");
-      setDaoBalance("-");
-      return;
-    }
-
-    // Refrescar balances con la nueva dirección
+    // Refrescar balances al montar y cuando cambian dependencias
     void refreshBalances();
+
+    // Escuchar eventos para refrescar balances automáticamente
+    const handleProposalExecuted = () => {
+      console.log('[FundingPanel] Propuesta ejecutada, refrescando balances...');
+      // Refrescar inmediatamente
+      void refreshBalances();
+      // Y también después de un delay para asegurar actualización
+      setTimeout(() => {
+        void refreshBalances();
+      }, 1000);
+      setTimeout(() => {
+        void refreshBalances();
+      }, 3000);
+    };
+
+    const handleFunded = () => {
+      console.log('[FundingPanel] Fondeo detectado, refrescando balances...');
+      // Refrescar inmediatamente
+      void refreshBalances();
+      // Y también después de un delay
+      setTimeout(() => {
+        void refreshBalances();
+      }, 1000);
+    };
+
+    window.addEventListener('proposalExecuted', handleProposalExecuted);
+    window.addEventListener('funded', handleFunded);
+
+    return () => {
+      window.removeEventListener('proposalExecuted', handleProposalExecuted);
+      window.removeEventListener('funded', handleFunded);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, contract?.instance]);
 
@@ -99,6 +122,8 @@ export function FundingPanel() {
       const tx = await c.fundDAO({ value });
       await tx.wait();
       await refreshBalances();
+      // Disparar evento para que otros componentes sepan que hubo un fondeo
+      window.dispatchEvent(new Event('funded'));
       setAmountEth("0.1"); // Resetear input después de éxito
     } catch (e: any) {
       // Ignorar errores de detección automática antes de enviar
@@ -111,6 +136,7 @@ export function FundingPanel() {
           const tx = await c.fundDAO({ value });
           await tx.wait();
           await refreshBalances();
+          window.dispatchEvent(new Event('funded'));
           setAmountEth("0.1");
         } catch (retryError: any) {
           const errorMsg = parseTransactionError(retryError);
@@ -152,10 +178,14 @@ export function FundingPanel() {
         </button>
       </div>
       {error && <div className="text-xs text-red-600">{error}</div>}
-      <div className="bg-neutral-50 rounded-lg p-4">
+      <div className="bg-neutral-50 rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between text-sm">
           <span className="text-neutral-600">Tu balance en el DAO:</span>
           <span className="font-semibold text-neutral-800">{userBalance} ETH</span>
+        </div>
+        <div className="flex items-center justify-between text-sm pt-2 border-t border-neutral-200">
+          <span className="text-neutral-600">Balance total del DAO:</span>
+          <span className="font-semibold text-neutral-800">{daoBalance} ETH</span>
         </div>
       </div>
       {!DAO_ADDRESS && (

@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { VoteButtons } from "./VoteButtons";
 import { useCountdown } from "../hooks/useCountdown";
 import { ExecuteProposalButton } from "./ExecuteProposalButton";
+import { getEthereum } from "../lib/ethereum";
 
 export type Proposal = {
   id: bigint;
@@ -19,6 +20,9 @@ export type Proposal = {
 };
 
 export function ProposalCard({ p, now }: { p: Proposal; now: number }) {
+  const [recipientBalance, setRecipientBalance] = useState<string | null>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+
   // Convertir deadline BigInt a timestamp y formatear fecha
   const deadlineTimestamp = Number(p.deadline);
   const deadlineDate = deadlineTimestamp > 0 ? new Date(deadlineTimestamp * 1000) : null;
@@ -39,6 +43,53 @@ export function ProposalCard({ p, now }: { p: Proposal; now: number }) {
 
   // Formatear monto en ETH
   const amountFormatted = p.amount ? ethers.formatEther(p.amount) : "0";
+
+  // Obtener balance del destinatario
+  useEffect(() => {
+    async function fetchRecipientBalance() {
+      if (!p.recipient || !ethers.isAddress(p.recipient)) {
+        setRecipientBalance(null);
+        return;
+      }
+
+      const ethereum = getEthereum();
+      if (!ethereum) {
+        setRecipientBalance(null);
+        return;
+      }
+
+      try {
+        setLoadingBalance(true);
+        const provider = new ethers.BrowserProvider(ethereum as any);
+        const balance = await provider.getBalance(p.recipient);
+        setRecipientBalance(ethers.formatEther(balance));
+      } catch (e) {
+        console.error("Error al obtener balance del destinatario:", e);
+        setRecipientBalance(null);
+      } finally {
+        setLoadingBalance(false);
+      }
+    }
+
+    // Obtener balance siempre que haya un destinatario válido
+    if (p.recipient && ethers.isAddress(p.recipient)) {
+      void fetchRecipientBalance();
+
+      // Refrescar balance cuando se ejecute una propuesta (especialmente si es esta)
+      const handleProposalExecuted = () => {
+        setTimeout(() => {
+          void fetchRecipientBalance();
+        }, 2000);
+      };
+
+      window.addEventListener('proposalExecuted', handleProposalExecuted);
+      return () => {
+        window.removeEventListener('proposalExecuted', handleProposalExecuted);
+      };
+    } else {
+      setRecipientBalance(null);
+    }
+  }, [p.executed, p.recipient]);
 
   // Usar hook de cuenta regresiva
   const countdown = useCountdown(deadlineTimestamp);
@@ -126,6 +177,17 @@ export function ProposalCard({ p, now }: { p: Proposal; now: number }) {
           <div>
             <p className="text-xs text-neutral-500 mb-1">Beneficiario</p>
             <p className="text-sm font-mono text-neutral-700">{recipientFormatted}</p>
+            {recipientBalance !== null && !loadingBalance && (
+              <p className="text-xs text-neutral-500 mt-1">
+                Balance: <span className="font-medium text-neutral-700">{recipientBalance} ETH</span>
+                {p.executed && (
+                  <span className="ml-2 text-emerald-600">✓ Recibió {amountFormatted} ETH</span>
+                )}
+              </p>
+            )}
+            {loadingBalance && (
+              <p className="text-xs text-neutral-400 mt-1">Cargando balance...</p>
+            )}
           </div>
           <div>
             <p className="text-xs text-neutral-500 mb-1">Monto</p>

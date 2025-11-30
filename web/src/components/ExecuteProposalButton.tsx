@@ -24,7 +24,7 @@ export function ExecuteProposalButton({ proposalId }: { proposalId: bigint }) {
       return new ethers.Contract(DAO_ADDRESS, DAOVOTING_ABI as any, signer);
     }
     const readOnly = new ethers.Contract(DAO_ADDRESS, DAOVOTING_ABI as any, provider);
-    return { get, readOnlyContract: readOnly };
+    return { contract: { get }, readOnlyContract: readOnly };
   }, []);
 
   // Verificar balance del usuario
@@ -52,14 +52,35 @@ export function ExecuteProposalButton({ proposalId }: { proposalId: bigint }) {
   const execute = async () => {
     setError(null);
     if (!address) return setError("Conecta tu wallet primero");
-    if (!contract) return setError("Contrato no configurado");
+    if (!contract?.get) return setError("Contrato no configurado");
     try {
       setSending(true);
       const c = await contract.get();
       const tx = await c.executeProposal(proposalId);
-      await tx.wait();
-      // Recargar página para actualizar estado
-      window.location.reload();
+      
+      // Esperar confirmación de la transacción
+      const receipt = await tx.wait();
+      console.log('Propuesta ejecutada, bloque confirmado:', receipt.blockNumber);
+      
+      // Disparar evento para refrescar propuestas y balances inmediatamente
+      window.dispatchEvent(new Event('proposalExecuted'));
+      
+      // Disparar eventos adicionales con un pequeño delay para asegurar actualización
+      setTimeout(() => {
+        window.dispatchEvent(new Event('proposalExecuted'));
+      }, 1000);
+      
+      setTimeout(() => {
+        window.dispatchEvent(new Event('proposalExecuted'));
+      }, 3000);
+      
+      // Mostrar mensaje de éxito
+      setError(null);
+      
+      // Recargar después de un delay para asegurar que todo se actualice
+      setTimeout(() => {
+        window.location.reload();
+      }, 4000);
     } catch (e: any) {
       const errorMsg = parseTransactionError(e);
       setError(errorMsg);

@@ -327,23 +327,6 @@ CREADA → ACTIVA → APROBADA/RECHAZADA → EJECUTADA
 - Permite revisión antes de ejecución
 - Previene ejecuciones prematuras
 
-## 📈 Optimizaciones de Gas
-
-1. **Uso de eventos** para logging (más barato que storage)
-2. **Packed structs** donde sea posible
-3. **View functions** para consultas sin costo
-4. **MinimalForwarder** implementación eficiente
-
-## 🔮 Futuras Mejoras
-
-- [ ] Soporte para múltiples tokens (ERC-20)
-- [ ] Delegación de votos
-- [ ] Quorum mínimo para aprobación
-- [ ] Timelock para propuestas grandes
-- [ ] Snapshot de balances para votación
-- [ ] Interface para integraciones externas
-
----
 
 **Última actualización**: 2025
 

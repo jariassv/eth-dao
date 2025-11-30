@@ -44,7 +44,40 @@ export function Header() {
       }
     };
 
+    // Refrescar balances al montar y cuando cambia la dirección
     refreshBalances();
+
+    // Escuchar eventos para refrescar balances automáticamente
+    const handleProposalExecuted = () => {
+      console.log('[Header] Propuesta ejecutada, refrescando balances...');
+      // Refrescar inmediatamente
+      void refreshBalances();
+      // Y también después de un delay para asegurar actualización
+      setTimeout(() => {
+        void refreshBalances();
+      }, 1000);
+      setTimeout(() => {
+        void refreshBalances();
+      }, 3000);
+    };
+
+    const handleFunded = () => {
+      console.log('[Header] Fondeo detectado, refrescando balances...');
+      // Refrescar inmediatamente
+      void refreshBalances();
+      // Y también después de un delay
+      setTimeout(() => {
+        void refreshBalances();
+      }, 1000);
+    };
+
+    window.addEventListener('proposalExecuted', handleProposalExecuted);
+    window.addEventListener('funded', handleFunded);
+
+    return () => {
+      window.removeEventListener('proposalExecuted', handleProposalExecuted);
+      window.removeEventListener('funded', handleFunded);
+    };
   }, [address]);
 
   return (

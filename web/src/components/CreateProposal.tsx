@@ -16,6 +16,12 @@ export function CreateProposal() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  
+  // Validar dirección en tiempo real
+  const recipientValid = recipient === "" || ethers.isAddress(recipient);
+  const recipientNormalized = recipient && ethers.isAddress(recipient) 
+    ? ethers.getAddress(recipient) 
+    : null;
 
   const contract = useMemo(() => {
     if (!DAO_ADDRESS) return null;
@@ -34,6 +40,25 @@ export function CreateProposal() {
     setInfo(null);
     if (!address) return setError("Conecta tu wallet primero");
     if (!contract) return setError("Contrato no configurado");
+    
+    // Validar dirección del beneficiario antes de continuar
+    if (!recipient || recipient.trim() === "") {
+      return setError("La dirección del beneficiario es requerida");
+    }
+    
+    // Validar que sea una dirección válida (sin intentar resolver ENS)
+    if (!ethers.isAddress(recipient)) {
+      return setError("La dirección del beneficiario no es válida");
+    }
+    
+    // Normalizar la dirección (aplicar checksum) - esto no intenta resolver ENS
+    let normalizedRecipient: string;
+    try {
+      normalizedRecipient = ethers.getAddress(recipient);
+    } catch (e) {
+      return setError("La dirección del beneficiario no es válida");
+    }
+    
     try {
       setSending(true);
       
@@ -47,13 +72,18 @@ export function CreateProposal() {
       const currentTimestamp = Number(block.timestamp);
       
       const amount = ethers.parseEther(amountEth || "0");
+      if (amount === 0n) {
+        throw new Error("El monto debe ser mayor a 0");
+      }
+      
       // Calcular deadline basado en el timestamp del bloque + horas
       const deadline = BigInt(currentTimestamp + deadlineHours * 3600);
       
       console.log(`[CreateProposal] Creando propuesta con deadline: ${deadline} (timestamp actual: ${currentTimestamp}, horas: ${deadlineHours})`);
       
       const c = await contract.get();
-      const tx = await c.createProposal(recipient, amount, deadline, description);
+      // Usar la dirección normalizada (sin ENS)
+      const tx = await c.createProposal(normalizedRecipient, amount, deadline, description);
       await tx.wait();
       setInfo("Propuesta creada correctamente");
       
@@ -62,9 +92,17 @@ export function CreateProposal() {
       setAmountEth("1.0");
       setDeadlineHours(24);
       setDescription("");
+      
+      // Disparar evento para refrescar la lista de propuestas
+      window.dispatchEvent(new Event('proposalCreated'));
     } catch (e: any) {
-      const errorMsg = parseTransactionError(e);
-      setError(errorMsg);
+      // Ignorar errores relacionados con ENS
+      if (e?.code === "UNSUPPORTED_OPERATION" && e?.operation === "getEnsAddress") {
+        setError("La red local no soporta nombres ENS. Por favor, usa una dirección completa (0x...)");
+      } else {
+        const errorMsg = parseTransactionError(e);
+        setError(errorMsg);
+      }
       console.error("Error al crear propuesta:", e);
     } finally {
       setSending(false);
@@ -78,11 +116,25 @@ export function CreateProposal() {
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-neutral-700">Beneficiario</label>
           <input
-            className="border border-neutral-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            className={`border px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+              recipient && !recipientValid
+                ? "border-red-300 focus:ring-red-500"
+                : recipient && recipientValid
+                ? "border-emerald-300 focus:ring-emerald-500"
+                : "border-neutral-300 focus:ring-emerald-500"
+            }`}
             placeholder="0x..."
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
           />
+          {recipient && !recipientValid && (
+            <p className="text-xs text-red-600">Dirección inválida</p>
+          )}
+          {recipientNormalized && recipientNormalized !== recipient && (
+            <p className="text-xs text-neutral-500">
+              Normalizada: <span className="font-mono">{recipientNormalized}</span>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex flex-col gap-2 flex-1">
@@ -127,7 +179,7 @@ export function CreateProposal() {
       </div>
       <button
         onClick={onCreate}
-        disabled={sending || !address}
+        disabled={sending || !address || !recipientValid || !recipient || !amountEth || parseFloat(amountEth) <= 0}
         className="px-6 py-2.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
       >
         {sending ? "Creando..." : "Crear Propuesta"}

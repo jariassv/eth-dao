@@ -121,8 +121,8 @@ echo -e "  DAO: $DAO_ADDR"
 # Obtener RELAYER_PRIVATE_KEY y RELAYER_ADDRESS si no están definidos
 if [ -z "$RELAYER_PRIVATE_KEY" ] || [ "$RELAYER_PRIVATE_KEY" = "0x" ]; then
     echo -e "${YELLOW}No se encontró RELAYER_PRIVATE_KEY, usando la segunda cuenta de Anvil${NC}"
-    RELAYER_PRIVATE_KEY="0x59c6995e998f97a5a0044976f6c54e6cdf73e76b5b6e2f0c8d9c0b3a1f4f5c6d"
-    RELAYER_ADDRESS=$(cast wallet address $RELAYER_PRIVATE_KEY 2>/dev/null || echo "0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+    RELAYER_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    RELAYER_ADDRESS=$(cast wallet address $RELAYER_PRIVATE_KEY 2>/dev/null || echo "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 fi
 
 # 3. Actualizar .env.local
