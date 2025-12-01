@@ -284,6 +284,14 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
 ---
 
+## 🎥 Demo
+
+Puedes ver una demostración completa del funcionamiento del DAO en el siguiente video:
+
+📹 **[Demo DAO](./Demo%20DAO.mp4)** - Demostración completa del sistema de votación gasless y gestión de propuestas
+
+---
+
 ## 📖 Guía de Uso Completa
 
 ### 1. Financiar el DAO
